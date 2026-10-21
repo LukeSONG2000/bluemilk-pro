@@ -2,12 +2,75 @@
   "id": "bluemilk.pro",
   "name": "BlueMilk Pro",
   "publisher": "BlueMilk project",
-  "version": "0.1.0",
-  "sdkVersion": 1,
+  "version": "0.2.0",
+  "sdkVersion": 2,
   "gameProfile": "swgoh-0.40.7",
-  "capabilities": ["battle.information.read", "battle.information.ui"],
-  "presentations": ["desktop", "cli"],
+  "capabilities": [
+    "battle.information.read",
+    "native.ui"
+  ],
+  "presentations": [
+    "desktop",
+    "cli"
+  ],
   "dependencies": [],
-  "conflicts": ["bluemilk.information"],
-  "entry": "main.js"
+  "conflicts": [
+    "bluemilk.information"
+  ],
+  "entry": "main.js",
+  "description": "原版信息辅助：血盾数值、技能冷却、有限回合状态和初始/当前属性。",
+  "repository": "https://github.com/LukeSONG2000/bluemilk-pro",
+  "configuration": {
+    "version": 1,
+    "fields": [
+      {
+        "key": "targetGap",
+        "label": "右上角数值与色条间距",
+        "type": "integer",
+        "minimum": 8,
+        "maximum": 48,
+        "default": 16
+      }
+    ]
+  },
+  "desktop": {
+    "version": 1,
+    "query": "view",
+    "refreshMs": 1000,
+    "features": [
+      {
+        "id": "information",
+        "title": "游戏内信息拓展",
+        "kind": "toggle",
+        "binding": "information",
+        "command": "set-information",
+        "home": true
+      },
+      {
+        "id": "attributes",
+        "title": "实时属性",
+        "kind": "table",
+        "binding": "attributes",
+        "home": true,
+        "columns": [
+          {
+            "key": "name",
+            "title": "属性"
+          },
+          {
+            "key": "initial",
+            "title": "初始"
+          },
+          {
+            "key": "current",
+            "title": "当前"
+          },
+          {
+            "key": "delta",
+            "title": "净变化"
+          }
+        ]
+      }
+    ]
+  }
 }

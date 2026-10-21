@@ -1,10 +1,39 @@
 'use strict';
+const install = require('./information-ui');
+const attributes = require('./attributes');
 module.exports = sdk => {
-  sdk.battle.information.install();
-  return sdk.lifecycle.compose({
-    command(name, payload) {
-      if (name === 'snapshot') return sdk.battle.snapshot(payload);
-      throw Error('Unknown BlueMilk Pro command');
+  let ui=null,lifecycle='enabled',lastStop=null;
+  const configuration=sdk.config.read();
+  const resource={
+    get ready(){return ui?.ready||Promise.resolve();},
+    status:()=>({lifecycle,information:!!ui,hud:ui?.status()??null,lastStop}),
+    async stop(){
+      lifecycle='stopping';
+      try {
+        if(ui){const result=await ui.stop();lastStop=result;if(result.lifecycle!=='stopped')throw Error('Pro UI cleanup was not confirmed');ui=null;}
+        lifecycle='stopped';return {lifecycle};
+      } catch(error){lifecycle='cleanup-failed';throw error;}
     }
-  });
+  };
+  sdk.lifecycle.own(resource);
+  sdk.native.on('ui.popup.updated',({popup,unit})=>ui?.refreshPopup(popup,unit));
+  ui=install(sdk,{gap:configuration.targetGap??16});
+  return sdk.lifecycle.compose({async command(name,payload){
+    if(name==='snapshot')return sdk.battle.snapshot(payload);
+    if(name==='status')return resource.status();
+    if(name==='view'){
+      const features=payload.features??['information','attributes'];
+      if(!Array.isArray(features)||features.some(f=>!['information','attributes'].includes(f)))throw Error('Unknown view feature');
+      const view={information:!!ui};
+      if(features.includes('attributes'))view.attributes=attributes(await sdk.battle.snapshot({detailScope:'selected'}),sdk.game.unitName);
+      return view;
+    }
+    if(name==='set-information'){
+      if(Object.keys(payload).join(',')!=='value'||typeof payload.value!=='boolean')throw Error('Expected boolean value');
+      if(payload.value&&!ui){ui=install(sdk,{gap:configuration.targetGap??16});await ui.ready;}
+      else if(!payload.value&&ui){const result=await ui.stop();lastStop=result;if(result.lifecycle!=='stopped')throw Error('Pro UI cleanup was not confirmed');ui=null;}
+      return {information:!!ui};
+    }
+    throw Error('Unknown BlueMilk Pro command');
+  }});
 };
