@@ -6,12 +6,13 @@ function fixture(failAt=0){
  const queue=[],live=new Set();let attaches=0,timers=0;
  const nil={isNull:()=>true};
  const R={arg:{},runOnMainThreadOnce:fn=>new Promise((resolve,reject)=>queue.push(()=>{try{resolve(fn());}catch(e){reject(e);}})),
-  findClass:x=>x,findMethod:(t,m)=>({readPointer:()=>t+'.'+m}),findBound:()=>({}),readRef:()=>nil};
+  findClass:x=>x,findMethod:(t,m)=>({readPointer:()=>t+'.'+m}),findBound:()=>({}),readRef:()=>nil,
+  readValue:()=>2,writeValue(){}};
  const ctx=vm.createContext({RuntimeApi:R,SceneApi:{all:()=>[]},rpc:{exports:{}},NativeSignals:{on(){return ()=>{};}},readBattleStatus:()=>({}),
   Process:{id:1},send(){},setInterval(){timers++;return 1;},clearInterval(){timers--;},
   Interceptor:{flush(){},attach(a){attaches++;if(attaches===failAt)throw Error('attach failed');live.add(a);return {detach(){live.delete(a);}};}}});
 
- return {ctx,live,queue,get timers(){return timers;},async tick(){for(let i=0;i<12&&!queue.length;i++)await Promise.resolve();assert.ok(queue.length);queue.shift()();await Promise.resolve();await Promise.resolve();await Promise.resolve();}};
+ return {ctx,live,queue,get timers(){return timers;},async tick(){for(let i=0;i<24;i++){while(queue.length)queue.shift()();await Promise.resolve();}}};
 }
 
 const payload=JSON.parse(fs.readFileSync(0,'utf8'));

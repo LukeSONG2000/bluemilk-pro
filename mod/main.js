@@ -1,6 +1,7 @@
 'use strict';
 const install = require('./information-ui');
 const attributes = require('./attributes');
+const connectivity = require('./ea-connectivity');
 module.exports = sdk => {
   let ui=null,lifecycle='enabled',lastStop=null;
   const configuration=sdk.config.read();
@@ -16,15 +17,17 @@ module.exports = sdk => {
     }
   };
   sdk.lifecycle.own(resource);
+  const network=sdk.lifecycle.own(connectivity(sdk,configuration.eaConnectivityMode??'extended'));
   sdk.native.on('ui.popup.updated',({popup,unit})=>ui?.refreshPopup(popup,unit));
   ui=install(sdk,{gap:configuration.targetGap??16});
   return sdk.lifecycle.compose({async command(name,payload){
     if(name==='snapshot')return sdk.battle.snapshot(payload);
-    if(name==='status')return resource.status();
+    if(name==='status')return {...resource.status(),connectivity:network.status()};
+    if(name==='set-connectivity')return network.setMode(payload.value);
     if(name==='view'){
       const features=payload.features??['information','attributes'];
-      if(!Array.isArray(features)||features.some(f=>!['information','attributes'].includes(f)))throw Error('Unknown view feature');
-      const view={information:!!ui};
+      if(!Array.isArray(features)||features.some(f=>!['information','attributes','connectivity'].includes(f)))throw Error('Unknown view feature');
+      const view={information:!!ui,connectivity:network.status().mode};
       if(features.includes('attributes'))view.attributes=attributes(await sdk.battle.snapshot({detailScope:'selected'}),sdk.game.unitName);
       return view;
     }
