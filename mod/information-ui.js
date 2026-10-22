@@ -31,9 +31,9 @@ module.exports = (sdk, options = {}) => {
   for(const anchor of ['leftAnchor','rightAnchor','topAnchor','bottomAnchor']){const a=R.readRef(label,anchor);if(!a.isNull())R.writeRef(a,'target',R.nil);}
   call('UIWidget','set_pivot',label,[A.value('i32',options.pivot??0)]);
   call('UIWidget','set_width',label,[A.value('i32',options.width||450)]);
-  call('UIWidget','set_height',label,[A.value('i32',48)]);
+  call('UIWidget','set_height',label,[A.value('i32',options.height??48)]);
   call('UILabel','set_fontSize',label,[A.value('i32',options.font||20)]);
-  call('UILabel','set_maxLineCount',label,[A.value('i32',2)]);
+  call('UILabel','set_maxLineCount',label,[A.value('i32',options.lines??2)]);
   call('UILabel','set_alignment',label,[A.value('i32',options.align??3)]);
   call('UILabel','set_supportEncoding',label,[A.value('bool',true)]);
   setVector(S.transform(label),'localPosition',options.position||[-205,-75,0]);
@@ -106,36 +106,61 @@ module.exports = (sdk, options = {}) => {
   const counts=[...new Set(matches.flatMap(e=>e.conditions.filter(c=>c.kind==='event-count'&&Number.isInteger(c.remaining)).map(c=>c.remaining)))];
   return counts.length?'[FFFFFF]('+counts.join('/')+')[-] ':'';
  }
+ function targetLabels(item){return [item.label,item.shieldLabel,item.bonusLabel];}
+ function writeTarget(item){
+  const text=targetNumbers(item),lines=text.split('\n'),shields=(lines[1]||'').split('    ');
+  const hasBonus=R.unbox(call('BattleUnitController','get_CurrentBonusShield',item.unit),'i32')!==0;
+  setText(item.label,lines[0]);setText(item.bonusLabel,hasBonus?shields[0]:'');setText(item.shieldLabel,hasBonus?(shields[1]||''):(shields[0]||''));
+  stats.target=text;layoutTarget(item);
+ }
+ function inkBounds(parent,label){
+  // Use the original coloured glyph mesh, excluding its black drop shadow. Widget height
+  // and font line boxes are not the visible digits' vertical centre.
+  const geometry=R.readRef(label,'geometry'),vertices=R.readRef(geometry,'verts');
+  const count=R.readValue(vertices,'_size','i32');if(!count)return null;
+  if(count>20000)throw Error('Unexpected target label geometry size');
+  const array=R.readRef(vertices,'_items'),colors=R.readRef(geometry,'cols');
+  if(R.readValue(colors,'_size','i32')!==count)return null;
+  const values=R.readRef(colors,'_items');let min=Infinity,max=-Infinity,left=Infinity,right=-Infinity;
+  for(let i=0;i<count;i++){
+   const color=values.add(32+i*16);
+   if(color.readFloat()+color.add(4).readFloat()+color.add(8).readFloat()<.05||color.add(12).readFloat()<.01)continue;
+   const vertex=array.add(32+i*12),x=vertex.readFloat(),y=vertex.add(4).readFloat();min=Math.min(min,y);max=Math.max(max,y);left=Math.min(left,x);right=Math.max(right,x);
+  }
+  if(!Number.isFinite(min))return null;
+  function localPoint(x,y){
+   const point=Memory.alloc(12);point.writeFloat(x);point.add(4).writeFloat(y);point.add(8).writeFloat(0);
+   const world=call('UnityEngine.Transform','TransformPoint',S.transform(label),[A.byRef(point)],['UnityEngine.Vector3']);
+   const local=call('UnityEngine.Transform','InverseTransformPoint',parent,[A.byRef(R.api('object_unbox','pointer',['pointer'])(world))],['UnityEngine.Vector3']);
+   const p=R.api('object_unbox','pointer',['pointer'])(local);return {x:p.readFloat(),y:p.add(4).readFloat()};
+  }
+  return {centerY:localPoint(0,(min+max)/2).y,left:localPoint(left,0).x,right:localPoint(right,0).x};
+ }
  function layoutTarget(item){
   const name=R.readRef(item.target,'_nameLabel'),parent=S.parent(S.transform(name));
-  // Anchor to the bars, not the ability grids below them: extra abilities must
-  // not push these numbers away from the health/protection display.
-  const controls=[R.readRef(item.target,'_healthBar'),R.readRef(item.target,'_shieldBar')];
-  const bounds=control=>{
-   const box=call('NGUIMath','CalculateRelativeWidgetBounds',R.nil,[A.ref(parent),A.ref(S.transform(control))],['UnityEngine.Transform','UnityEngine.Transform']);
-   const p=R.api('object_unbox','pointer',['pointer'])(box);
-   return {left:p.readFloat()-p.add(12).readFloat(),right:p.readFloat()+p.add(12).readFloat()};
-  };
-  let left=null;
-  const measured=[];
-  for(const control of controls){
-   const isActive=active(control);
-   if(!isActive){measured.push({active:false});continue;}
-   const measuredBounds=bounds(control);measured.push({active:true,...measuredBounds});
-   const minX=measuredBounds.left;
-   if(Number.isFinite(minX)&&(left===null||minX<left))left=minX;
+  const bars={health:R.readRef(item.target,'_healthBar'),shield:R.readRef(item.target,'_shieldBar'),bonus:R.readRef(item.target,'_bonusShieldBar')};
+  const measured=Object.entries(bars).map(([kind,bar])=>({kind,active:active(bar),...widgetBounds(parent,bar)}));
+  const lefts=measured.filter(b=>b.active&&b.kind!=='bonus').map(b=>b.left).filter(Number.isFinite);
+  if(!lefts.length){stats.targetLayout={measured,unavailable:true};return;}
+  const left=Math.min(...lefts),gap=options.gap??16,z=S.vector(S.transform(name),'localPosition')[2],rows=[];
+  function place(label,bar,right,kind){
+   const text=S.string(call('UILabel','get_text',label));if(!text)return null;
+   // Use the complete native bar's displayed bounds. The bonus slider's
+   // foreground widget is not positioned at the visible protection row.
+   const y=widgetBounds(parent,bar).y;
+   setVector(S.transform(label),'localPosition',[right,y,z]);
+   const bounds=widgetBounds(parent,label),x=right+(right-bounds.right);
+   setVector(S.transform(label),'localPosition',[x,y,z]);
+   const ink=inkBounds(parent,label),centre=ink?.centerY??null,shift=centre===null?0:y-centre;
+   if(centre!==null)setVector(S.transform(label),'localPosition',[x,y+shift,z]);
+   rows.push({kind,barCenter:y,glyphCenter:centre===null?null:centre+shift,correction:shift,ready:centre!==null});
+   return ink||widgetBounds(parent,label);
   }
-  if(left===null){stats.targetLayout={measured,unavailable:true};return;}
-  const position=S.vector(S.transform(name),'localPosition');
-  const health=widgetBounds(parent,R.readRef(item.target,'_healthBar')),shield=widgetBounds(parent,R.readRef(item.target,'_shieldBar'));
-  const center=(health.y+shield.y)/2;
-  const gap=options.gap??16;
-  setVector(S.transform(item.label),'localPosition',[left-gap,center,position[2]]);
-  // A cloned label can carry scaling/geometry offsets. Correct its actual
-  // right edge rather than treating the Transform origin as the edge.
-  const actual=bounds(item.label),delta=left-gap-actual.right;
-  if(Number.isFinite(delta))setVector(S.transform(item.label),'localPosition',[left-gap+delta,center,position[2]]);
-  stats.targetLayout={controlsLeft:left,label:bounds(item.label),gap,measured};
+  place(item.label,bars.health,left-gap,'health');
+  const shield=place(item.shieldLabel,bars.shield,left-gap,'shield');
+  // Preserve purple-left / permanent-right ordering, without coupling baselines.
+  place(item.bonusLabel,bars.bonus,shield?shield.left-18:left-gap,'bonus');
+  stats.targetLayout={controlsLeft:left,label:widgetBounds(parent,item.label),gap,measured,rows};
  }
  function refreshShipTarget(view){
   const key=view.toString(),portrait=R.readRef(view,'_opponentPortraitContainer');
@@ -185,18 +210,17 @@ module.exports = (sdk, options = {}) => {
   // Native selection can change without either observed health callback.
   // The view's selected opponent is authoritative, never the cached hook unit.
   item.unit=R.readRef(view,'<SelectedOpponent>k__BackingField');
-  if(item.unit.isNull()){setText(item.label,'');stats.target=null;return;}
-  const text=targetNumbers(item);setText(item.label,text);stats.target=text;
+  if(item.unit.isNull()){for(const label of targetLabels(item))setText(label,'');stats.target=null;return;}
+  writeTarget(item);
   for(const row of stats.healthAnomalies)if(!row.deferred&&row.key.startsWith(item.unit.toString()+':')){
-   row.deferred={observedAt:Date.now(),text};
+   row.deferred={observedAt:Date.now(),text:stats.target};
    send({kind:'battle-info-health-deferred',key:row.key,...row.deferred});
   }
-  layoutTarget(item);
  }
  function updateTargetItem(item,unit){
   item.unit=unit;
-  if(unit.isNull()){setText(item.label,'');stats.target=null;return;}
-  const text=targetNumbers(item);setText(item.label,text);stats.target=text;
+  if(unit.isNull()){for(const label of targetLabels(item))setText(label,'');stats.target=null;return;}
+  writeTarget(item);
  }
  function renderTarget(view,unit){
   const target=R.readRef(view,'_opponentTargetComponent');if(target.isNull())return;
@@ -204,10 +228,10 @@ module.exports = (sdk, options = {}) => {
   if(unit.isNull()){if(item)updateTargetItem(item,unit);else stats.target=null;return;}
   if(!item){
    const name=R.readRef(target,'_nameLabel'),transform=S.transform(name),position=S.vector(transform,'localPosition');
-   const label=makeLabel(R.readRef(view,'_effectDetailsPopup'),{parent:S.parent(transform),name:'REA_TargetAbsoluteHealth',pivot:5,width:400,font:18,position:[position[0],position[1],position[2]]});
-   item={target,label,unit,view};targets.set(target.toString(),item);
+   const label=makeLabel(R.readRef(view,'_effectDetailsPopup'),{parent:S.parent(transform),name:'REA_TargetAbsoluteHealth',pivot:5,width:400,font:18,height:24,lines:1,position:[position[0],position[1],position[2]]});
+   const create=name=>makeLabel(R.readRef(view,'_effectDetailsPopup'),{parent:S.parent(transform),name,pivot:5,width:400,font:18,height:24,lines:1});
+   item={target,label,shieldLabel:create('REA_TargetAbsoluteShield'),bonusLabel:create('REA_TargetAbsoluteBonus'),unit,view};targets.set(target.toString(),item);
   }
-  layoutTarget(item);
   updateTargetItem(item,unit);
  }
  function visibleEffectOverlay(sprite){
@@ -374,7 +398,7 @@ module.exports = (sdk, options = {}) => {
     setVector(item.table,'localPosition',item.tablePosition);
    });
    const liveTargets=new Set(S.all('BattleTargetComponent').map(p=>p.toString()));
-   for(const item of targets.values())if(liveTargets.has(item.target.toString()))safe(()=>destroyOwnedLabel(item.label));
+   for(const item of targets.values())if(liveTargets.has(item.target.toString()))for(const label of targetLabels(item))safe(()=>destroyOwnedLabel(label));
    const liveShips=new Set(S.all('BattleShipView').map(p=>p.toString()));
    for(const item of shipTargets.values())if(liveShips.has(item.view.toString()))safe(()=>destroyOwnedLabel(item.label));
    popups.clear();targets.clear();shipTargets.clear();
