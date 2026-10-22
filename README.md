@@ -1,6 +1,6 @@
 # BlueMilk Pro
 
-保持原版玩法的信息辅助与连接修复 Mod，配合 BlueMilk Editor / bluemilk 使用。**0.2.2 需要 Editor 0.2.2（SDK 2）。** 使用与 Editor 相同的双杯图标，作为 BlueMilk 官方 Mod 的视觉标识；本项目不隶属于 EA。
+保持原版玩法的信息辅助与连接修复 Mod，配合 BlueMilk Editor / bluemilk 使用。**0.2.3 需要 Editor 0.2.3（SDK 2）。** 使用与 Editor 相同的双杯图标，作为 BlueMilk 官方 Mod 的视觉标识；本项目不隶属于 EA。
 
 ## 包含内容
 
@@ -55,7 +55,7 @@ CLI 原始快照：
 ## 构建与验证
 
 ```powershell
-py -X utf8 ../bluemilk-editor/tools/mod_author.py pack mod ../bluemilk-editor/logs/BlueMilk-Pro-0.2.2.bluemilk
+py -X utf8 ../bluemilk-editor/tools/mod_author.py pack mod ../bluemilk-editor/logs/BlueMilk-Pro-0.2.3.bluemilk
 node tests/attributes.cjs
 node tests/connectivity.cjs
 py -X utf8 tests/test_package.py

@@ -2,7 +2,7 @@
   "id": "bluemilk.pro",
   "name": "BlueMilk Pro",
   "publisher": "BlueMilk project",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "sdkVersion": 2,
   "gameProfile": "swgoh-0.40.7",
   "capabilities": [
@@ -84,10 +84,9 @@
           "background": "#ED192940",
           "foreground": "#FFFFFFFF",
           "border": "#FF52CCF6",
-          "fontFamily": "MYingHei_18030_C-Medium, Arial, Microsoft YaHei",
+          "fontFamily": "MYingHei_18030_C",
           "fontSize": 16,
-          "fontAsset": "MYingHei_18030_C-Medium",
-          "spriteAsset": "effects_details_bg"
+          "fontAsset": "MYingHei_18030_C-Medium"
         }
       },
       {
