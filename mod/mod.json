@@ -1,7 +1,7 @@
 {
   "id": "bluemilk.pro",
   "name": "BlueMilk Pro",
-  "version": "0.2.5",
+  "version": "1.0.0",
   "sdkVersion": 2,
   "gameProfile": "swgoh-0.40.7",
   "capabilities": [
@@ -98,5 +98,6 @@
   "updates": {
     "provider": "github",
     "asset": "BlueMilk-Pro-{version}.bluemilk"
-  }
+  },
+  "publishedAt": "2026-10-22T08:24:09Z"
 }
