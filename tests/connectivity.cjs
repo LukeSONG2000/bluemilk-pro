@@ -16,22 +16,22 @@ const install=require('../mod/ea-connectivity');
  global.Interceptor={attach:(p,handlers)=>{assert.equal(p,address);observer=handlers;return {detach(){observer=null;}};},
   replace:(p,fn)=>{assert.equal(p,address);replaced=true;replacement=fn;},
   revert:p=>{assert.equal(p,address);replaced=false;},flush(){}};
- const fix=install({native:{runtime:R}},'extended');await fix.ready;assert.equal(first.timeout,15);
+ const fix=install({native:{runtime:R}},true);await fix.ready;assert.equal(first.timeout,15);
  // The exact user regression: login replaces the config. Status must reveal
  // the live 2-second value without writing from a read-only query.
  selected=second;assert.equal((await fix.inspect()).timeoutSeconds,2);assert.equal(second.timeout,2);
  observer.onEnter([{}]);assert.equal(second.timeout,15);assert.equal(first.timeout,15);
  assert.equal((await fix.inspect()).timeoutSeconds,15);
- await fix.setMode('skip');assert.equal(first.timeout,2);assert.equal(second.timeout,2);assert.equal(observer,null);
- assert.equal(replaced,true);assert.equal(replacement({}),0);assert.equal(continuations,1);
- await fix.setMode('extended');assert.equal(replaced,false);assert.equal(second.timeout,15);
- await assert.rejects(fix.setMode('made-up'),/Unknown/);assert.equal(second.timeout,15);
+ await fix.setEnabled(false);assert.equal(first.timeout,2);assert.equal(second.timeout,2);assert.equal(observer,null);
+ assert.equal(replaced,false);assert.equal(continuations,0);assert.equal(fix.status().enabled,false);
+ await fix.setEnabled(true);assert.equal(second.timeout,15);assert.equal(fix.status().enabled,true);
+ await assert.rejects(fix.setEnabled('skip'),/Expected boolean/);assert.equal(second.timeout,15);
  second.timeout=7;await fix.stop();assert.equal(second.timeout,7);assert.equal(fix.status().lifecycle,'stopped');
  assert.equal(observer,null);assert.equal(retains,releases);
  bindingReady=false;
- const early=install({native:{runtime:R}},'extended');await early.ready;
+ const early=install({native:{runtime:R}},true);await early.ready;
  assert.equal(early.status().configurationReady,false);assert.equal(early.status().timeoutSeconds,null);
  bindingReady=true;second.timeout=2;observer.onEnter([{}]);
  assert.equal((await early.inspect()).timeoutSeconds,15);await early.stop();assert.equal(second.timeout,2);
- console.log('PASS EA preflight: refreshed purchase config, truthful status, native entry rebinding, skip, ownership and cleanup');
+ console.log('PASS EA preflight: refreshed purchase config, truthful status, native entry rebinding, fixed boolean toggle, ownership and cleanup');
 })().catch(e=>{console.error(e);process.exitCode=1;});

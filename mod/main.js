@@ -17,17 +17,17 @@ module.exports = sdk => {
     }
   };
   sdk.lifecycle.own(resource);
-  const network=sdk.lifecycle.own(connectivity(sdk,configuration.eaConnectivityMode??'extended'));
+  const network=sdk.lifecycle.own(connectivity(sdk,configuration.purchaseFailureFix??true));
   sdk.native.on('ui.popup.updated',({popup,unit})=>ui?.refreshPopup(popup,unit));
   ui=install(sdk,{gap:configuration.targetGap??16});
   return sdk.lifecycle.compose({async command(name,payload){
     if(name==='snapshot')return sdk.battle.snapshot(payload);
     if(name==='status')return {...resource.status(),connectivity:await network.inspect()};
-    if(name==='set-connectivity')return network.setMode(payload.value);
+    if(name==='set-connectivity')return network.setEnabled(payload.value);
     if(name==='view'){
       const features=payload.features??['information','attributes'];
       if(!Array.isArray(features)||features.some(f=>!['information','attributes','connectivity'].includes(f)))throw Error('Unknown view feature');
-      const view={information:!!ui,connectivity:network.status().mode};
+      const view={information:!!ui,connectivity:network.status().enabled};
       if(features.includes('attributes'))view.attributes=attributes(await sdk.battle.snapshot({detailScope:'selected'}),sdk.game.unitName);
       return view;
     }

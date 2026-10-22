@@ -1,8 +1,7 @@
 {
   "id": "bluemilk.pro",
   "name": "BlueMilk Pro",
-  "publisher": "BlueMilk project",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "sdkVersion": 2,
   "gameProfile": "swgoh-0.40.7",
   "capabilities": [
@@ -18,7 +17,7 @@
     "bluemilk.information"
   ],
   "entry": "main.js",
-  "description": "原版信息辅助与连接修复。",
+  "description": "原版信息辅助与商店购买失败修复。",
   "repository": "https://github.com/LukeSONG2000/bluemilk-pro",
   "configuration": {
     "version": 1,
@@ -32,16 +31,10 @@
         "default": 16
       },
       {
-        "key": "eaConnectivityMode",
-        "label": "EA连接修复模式",
-        "type": "string",
-        "maxLength": 16,
-        "default": "extended",
-        "options": [
-          "original",
-          "extended",
-          "skip"
-        ]
+        "key": "purchaseFailureFix",
+        "label": "商店购买失败修复",
+        "type": "boolean",
+        "default": true
       }
     ]
   },
@@ -91,28 +84,19 @@
       },
       {
         "id": "connectivity",
-        "title": "EA 连接修复",
-        "description": "延长或跳过官网联网预检，保留 EA 平台认证和原版领取流程。",
-        "kind": "select",
+        "title": "商店购买失败修复",
+        "description": "修复EA服务器连接超时，导致商店购买失败需要重新启动的问题。",
+        "kind": "toggle",
         "binding": "connectivity",
         "command": "set-connectivity",
-        "home": true,
-        "options": [
-          {
-            "value": "original",
-            "label": "原版（2 秒）"
-          },
-          {
-            "value": "extended",
-            "label": "延长至 15 秒"
-          },
-          {
-            "value": "skip",
-            "label": "跳过官网预检"
-          }
-        ]
+        "home": true
       }
     ]
   },
-  "icon": "icon.png"
+  "icon": "icon.png",
+  "author": "LukeSONG2000",
+  "updates": {
+    "provider": "github",
+    "asset": "BlueMilk-Pro-{version}.bluemilk"
+  }
 }
