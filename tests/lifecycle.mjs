@@ -4,10 +4,11 @@ import vm from 'node:vm';
 
 function fixture(failAt=0){
  const queue=[],live=new Set();let attaches=0,timers=0;
- const nil={isNull:()=>true};
+ const nil={isNull:()=>true},constants={isNull:()=>false,toString:()=> 'constants'};
  const R={arg:{},runOnMainThreadOnce:fn=>new Promise((resolve,reject)=>queue.push(()=>{try{resolve(fn());}catch(e){reject(e);}})),
-  findClass:x=>x,findMethod:(t,m)=>({readPointer:()=>t+'.'+m}),findBound:()=>({}),readRef:()=>nil,
-  readValue:()=>2,writeValue(){}};
+  findClass:x=>x,findMethod:(t,m)=>({readPointer:()=>t+'.'+m}),findBound:()=>({}),readRef:(o,n)=>n==='_gameConstants'?constants:nil,
+  allClasses:()=>[{name:'PurchaseController+<PingURLCheck>d__60',klass:'ping'}],retain:()=>1,release(){},
+  readValue:()=>constants.timeout??2,writeValue:(o,n,k,v)=>{constants.timeout=v;}};
  const ctx=vm.createContext({RuntimeApi:R,SceneApi:{all:()=>[]},rpc:{exports:{}},NativeSignals:{on(){return ()=>{};}},readBattleStatus:()=>({}),
   Process:{id:1},send(){},setInterval(){timers++;return 1;},clearInterval(){timers--;},
   Interceptor:{flush(){},attach(a){attaches++;if(attaches===failAt)throw Error('attach failed');live.add(a);return {detach(){live.delete(a);}};}}});
@@ -23,7 +24,7 @@ mods.registerPackage(payload.manifest,payload.source,payload.sha256);
 assert.equal(f.live.size,0);assert.equal(f.queue.length,0);
 for(let n=0;n<2;n++){
  const enabling=mods.command('enable',{id:payload.manifest.id});
- await f.tick();assert.equal((await enabling).state,'enabled');assert.equal(f.live.size,9);
+ await f.tick();assert.equal((await enabling).state,'enabled');assert.equal(f.live.size,10);
  const disabling=mods.command('disable',{id:payload.manifest.id});
  await f.tick();assert.equal((await disabling).state,'disabled');assert.equal(f.live.size,0);
  assert.equal(f.timers,0);

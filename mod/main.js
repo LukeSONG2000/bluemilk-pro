@@ -22,7 +22,7 @@ module.exports = sdk => {
   ui=install(sdk,{gap:configuration.targetGap??16});
   return sdk.lifecycle.compose({async command(name,payload){
     if(name==='snapshot')return sdk.battle.snapshot(payload);
-    if(name==='status')return {...resource.status(),connectivity:network.status()};
+    if(name==='status')return {...resource.status(),connectivity:await network.inspect()};
     if(name==='set-connectivity')return network.setMode(payload.value);
     if(name==='view'){
       const features=payload.features??['information','attributes'];
